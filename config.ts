@@ -27,7 +27,7 @@ export const DEFAULT_CONFIG: SoundConfig = {
 
 export const DEFAULT_CONFIG_FILE = join(homedir(), ".pi", "ui-sfx.json");
 
-function clampVolume(value: number): number {
+function clampVolume(value: number | undefined): number {
 	if (typeof value !== "number" || Number.isNaN(value)) return DEFAULT_CONFIG.volume;
 	return Math.min(1, Math.max(0, value));
 }

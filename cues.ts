@@ -9,7 +9,7 @@
 
 /** Per-cue default volume from the uisfx catalog. */
 export const CUE_VOLUME: Record<string, number> = {
-	send: 0.2,
+	press: 0.2,
 	receive: 0.2,
 	complete: 0.24,
 	warning: 0.22,

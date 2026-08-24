@@ -8,7 +8,7 @@
  * null-safe `play()`, and stop handles.
  */
 
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -53,12 +53,13 @@ export function effectiveVolume(master: number, cue: string): number {
 }
 
 function commandExists(command: string): boolean {
-	const result = spawn(command, ["--version"], { stdio: "ignore" });
+	// spawnSync (not spawn) so `.error` is set synchronously when the binary is
+	// missing; spawn reports ENOENT only via an async `error` event, which would
+	// make detection always return true.
+	const result = spawnSync(command, ["--version"], { stdio: "ignore" });
 	// ENOENT means the binary does not exist; any other spawn outcome means the
 	// command was found (afplay exits non-zero for --version but still spawns).
-	const found = result.error?.code !== "ENOENT";
-	result.unref();
-	return found;
+	return (result.error as NodeJS.ErrnoException | undefined)?.code !== "ENOENT";
 }
 
 export function detectBackend(): Backend {

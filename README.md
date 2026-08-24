@@ -24,7 +24,10 @@ persisted sound preference.
 
 ```bash
 # From GitHub (cloned under ~/.pi/agent/git/)
-pi install github:limboinf/pi-ui-sfx
+pi install git:github.com/limboinf/pi-ui-sfx
+
+# Pin a tag or commit
+pi install git:github.com/limboinf/pi-ui-sfx@v1.0.0
 
 # Or from a local checkout (no copy; edits take effect after /reload)
 pi install /path/to/pi-ui-sfx
@@ -34,7 +37,7 @@ pi install /path/to/pi-ui-sfx
 
 | Product event | Cue | When |
 |---|---|---|
-| User submits a prompt | `send` | `input` event, interactive source only |
+| User submits a prompt | `press` | `input` event, interactive source only |
 | Agent starts producing its reply | `receive` | first assistant `message_start` in a run |
 | Agent fully settles | `complete` | `agent_settled` (no retry/compaction/follow-up left) |
 | Consequential tool call needs review | `warning` | dangerous bash / sensitive write via `tool_call` |

@@ -4,7 +4,7 @@
  * Plays the uisfx "scifi" pack through the terminal's native player, mapped to
  * real product events rather than raw clicks:
  *
- *   - send      user submits a prompt (input, interactive source)
+ *   - press     user submits a prompt (input, interactive source)
  *   - receive   the agent starts producing its reply (first assistant message)
  *   - complete  the agent fully settles (no retry/compaction/follow-up left)
  *   - warning   a consequential tool call needs review (dangerous bash, sensitive write)
@@ -26,13 +26,25 @@
  * { outcome: "approved" | "declined" })` to get the unlock/lock outcome cue.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+	ExtensionEvent,
+	InputEvent,
+	MessageStartEvent,
+	SessionStartEvent,
+	ToolCallEvent,
+	ToolExecutionEndEvent,
+} from "@earendil-works/pi-coding-agent";
 import { TerminalPlayer } from "./audio.ts";
 import { loadConfig, saveConfig, type SoundConfig } from "./config.ts";
 import { PACKS } from "./cues.ts";
 import { cueForToolCall } from "./mapping.ts";
 
 type ApprovalOutcome = { outcome?: unknown };
+
+// `ModelSelectEvent` is not re-exported from the package root, so derive it.
+type ModelSelectEvent = Extract<ExtensionEvent, { type: "model_select" }>;
 
 export default function (pi: ExtensionAPI) {
 	const config: SoundConfig = loadConfig();
@@ -46,64 +58,70 @@ export default function (pi: ExtensionAPI) {
 		player.play(cue);
 	}
 
+	// Pi broadcasts events in every mode (tui / rpc / json / print). Sound is
+	// only meaningful in the interactive terminal, so each handler is gated on
+	// `ctx.mode === "tui"` in one place.
+	function onTui<E>(event: string, handler: (event: E, ctx: ExtensionContext) => void): void {
+		(pi.on as (name: string, handler: (event: unknown, ctx: ExtensionContext) => void) => void)(
+			event,
+			(event, ctx) => {
+				if (ctx.mode !== "tui") return;
+				handler(event as E, ctx);
+			},
+		);
+	}
+
 	// --- User submits a prompt -------------------------------------------------
-	pi.on("input", (event, ctx) => {
-		if (ctx.mode !== "tui") return;
-		if (event.source === "interactive") play("send");
+	onTui<InputEvent>("input", (event) => {
+		if (event.source === "interactive") play("press");
 	});
 
 	// --- Agent starts / settles ------------------------------------------------
-	pi.on("agent_start", (_event, ctx) => {
-		if (ctx.mode !== "tui") return;
+	onTui("agent_start", () => {
 		runActive = true;
 		assistantStarted = false;
 	});
 
-	pi.on("message_start", (event, ctx) => {
-		if (ctx.mode !== "tui") return;
+	onTui<MessageStartEvent>("message_start", (event) => {
 		if (runActive && !assistantStarted && event.message.role === "assistant") {
 			assistantStarted = true;
 			play("receive");
 		}
 	});
 
-	pi.on("agent_settled", (_event, ctx) => {
-		if (ctx.mode !== "tui") return;
+	onTui("agent_settled", () => {
 		runActive = false;
 		assistantStarted = false;
 		play("complete");
 	});
 
 	// --- Tool outcomes ----------------------------------------------------------
-	pi.on("tool_call", (event, ctx) => {
-		if (ctx.mode !== "tui") return;
+	onTui<ToolCallEvent>("tool_call", (event) => {
 		const input = event.input as Record<string, unknown>;
 		if (cueForToolCall(event.toolName, input) === "warning") play("warning");
 	});
 
-	pi.on("tool_execution_end", (event, ctx) => {
-		if (ctx.mode !== "tui") return;
+	onTui<ToolExecutionEndEvent>("tool_execution_end", (event) => {
 		if (event.isError) play("error");
 	});
 
 	// --- Model changes (explicit user action only) ------------------------------
-	pi.on("model_select", (event, ctx) => {
-		if (ctx.mode !== "tui") return;
+	onTui<ModelSelectEvent>("model_select", (event) => {
 		if (event.source === "set" || event.source === "cycle") play("select");
 	});
 
 	// --- Session entry (explicit user transition only) ---------------------------
-	pi.on("session_start", (event, ctx) => {
-		if (ctx.mode !== "tui") return;
+	onTui<SessionStartEvent>("session_start", (event) => {
 		if (event.reason === "new" || event.reason === "resume" || event.reason === "fork") {
 			play("open");
 		}
 	});
 
 	// --- Approval outcome bridge for other extensions -----------------------------
-	pi.events.on("uisfx:approval", (data: ApprovalOutcome) => {
-		if (data?.outcome === "approved") play("unlock");
-		else if (data?.outcome === "declined") play("lock");
+	pi.events.on("uisfx:approval", (data) => {
+		const outcome = (data as ApprovalOutcome)?.outcome;
+		if (outcome === "approved") play("unlock");
+		else if (outcome === "declined") play("lock");
 	});
 
 	// --- Commands -----------------------------------------------------------------
