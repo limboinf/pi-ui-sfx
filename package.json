@@ -1,0 +1,27 @@
+{
+  "name": "pi-ui-sfx",
+  "version": "1.0.0",
+  "description": "Semantic UI sound effects for Pi (terminal TUI) using the uisfx audio assets",
+  "type": "module",
+  "keywords": ["pi-package", "pi-extension", "uisfx", "sound", "audio", "sfx", "terminal"],
+  "license": "MIT",
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/config.test.ts test/mapping.test.ts test/audio.test.ts"
+  },
+  "dependencies": {
+    "uisfx": "^0.4.0"
+  },
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "engines": {
+    "node": ">=22.6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/limboinf/pi-ui-sfx.git"
+  },
+  "bugs": {
+    "url": "https://github.com/limboinf/pi-ui-sfx/issues"
+  }
+}
